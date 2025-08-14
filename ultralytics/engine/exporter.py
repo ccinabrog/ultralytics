@@ -145,6 +145,7 @@ def export_formats():
         ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "half"]],
         ["IMX", "imx", "_imx_model", True, True, ["int8", "fraction", "nms"]],
         ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name"]],
+        ["DXNN", "dxnn", "_dxnn_model", True, True, ["batch", "device"]],
     ]
     return dict(zip(["Format", "Argument", "Suffix", "CPU", "GPU", "Arguments"], zip(*x)))
 
@@ -1158,6 +1159,29 @@ class Exporter:
         rknn.build(do_quantization=False)  # TODO: Add quantization support
         f = f.replace(".onnx", f"-{self.args.name}.rknn")
         rknn.export_rknn(f"{export_path / f}")
+        YAML.save(export_path / "metadata.yaml", self.metadata)
+        return export_path, None
+
+    @try_export
+    def export_dxnn(self, prefix=colorstr("DXNN:")):
+        """Export YOLO model to DXNN format."""
+        LOGGER.info(f"\n{prefix} starting export with dxnn-converter...")
+
+        check_requirements("dxnn-converter")  # Assuming DXNN converter package
+        from dxnn.converter import DXNNConverter  # Assuming DXNN converter import
+
+        f, _ = self.export_onnx()
+        export_path = Path(f"{Path(f).stem}_dxnn_model")
+        export_path.mkdir(exist_ok=True)
+
+        converter = DXNNConverter()
+        converter.convert(
+            input_model=f,
+            output_path=export_path,
+            target_device=self.args.device if hasattr(self.args, 'device') else 'cpu',
+            batch_size=self.args.batch
+        )
+        
         YAML.save(export_path / "metadata.yaml", self.metadata)
         return export_path, None
 

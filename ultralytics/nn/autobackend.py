@@ -93,6 +93,7 @@ class AutoBackend(nn.Module):
             | NCNN                  | *_ncnn_model/     |
             | IMX                   | *_imx_model/      |
             | RKNN                  | *_rknn_model/     |
+            | DXNN                  | *_dxnn_model/     |
 
     Attributes:
         model (torch.nn.Module): The loaded YOLO model.
@@ -118,6 +119,7 @@ class AutoBackend(nn.Module):
         ncnn (bool): Whether the model is an NCNN model.
         imx (bool): Whether the model is an IMX model.
         rknn (bool): Whether the model is an RKNN model.
+        dxnn (bool): Whether the model is a DXNN model.
         triton (bool): Whether the model is a Triton Inference Server model.
 
     Methods:
@@ -174,10 +176,11 @@ class AutoBackend(nn.Module):
             ncnn,
             imx,
             rknn,
+            dxnn,
             triton,
         ) = self._model_type(w)
         fp16 &= pt or jit or onnx or xml or engine or nn_module or triton  # FP16
-        nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn  # BHWC formats (vs torch BCWH)
+        nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn or dxnn  # BHWC formats (vs torch BCWH)
         stride, ch = 32, 3  # default stride and channels
         end2end, dynamic = False, False
         model, metadata, task = None, None, None
@@ -570,6 +573,20 @@ class AutoBackend(nn.Module):
             rknn_model.init_runtime()
             metadata = w.parent / "metadata.yaml"
 
+        # DXNN
+        elif dxnn:
+            LOGGER.info(f"Loading {w} for DXNN inference...")
+            check_requirements("dxnn-runtime")  # Assuming DXNN runtime package
+            from dxnn.runtime import DXNNRuntime  # Assuming DXNN runtime import
+
+            w = Path(w)
+            if not w.is_file():  # if not *.dxnn
+                w = next(w.rglob("*.dxnn"))  # get *.dxnn file from *_dxnn_model dir
+            dxnn_model = DXNNRuntime()
+            dxnn_model.load_model(str(w))
+            dxnn_model.initialize()
+            metadata = w.parent / "metadata.yaml"
+
         # Any other format (unsupported)
         else:
             from ultralytics.engine.exporter import export_formats
@@ -777,6 +794,12 @@ class AutoBackend(nn.Module):
             im = im if isinstance(im, (list, tuple)) else [im]
             y = self.rknn_model.inference(inputs=im)
 
+        # DXNN
+        elif self.dxnn:
+            im = im.cpu().numpy()  # torch to numpy
+            im = im if isinstance(im, (list, tuple)) else [im]
+            y = self.dxnn_model.inference(inputs=im)
+
         # TensorFlow (SavedModel, GraphDef, Lite, Edge TPU)
         else:
             im = im.cpu().numpy()
@@ -857,7 +880,7 @@ class AutoBackend(nn.Module):
         """
         import torchvision  # noqa (import here so torchvision import time not recorded in postprocess time)
 
-        warmup_types = self.pt, self.jit, self.onnx, self.engine, self.saved_model, self.pb, self.triton, self.nn_module
+        warmup_types = self.pt, self.jit, self.onnx, self.engine, self.saved_model, self.pb, self.triton, self.nn_module, self.dxnn
         if any(warmup_types) and (self.device.type != "cpu" or self.triton):
             im = torch.empty(*imgsz, dtype=torch.half if self.fp16 else torch.float, device=self.device)  # input
             for _ in range(2 if self.jit else 1):
