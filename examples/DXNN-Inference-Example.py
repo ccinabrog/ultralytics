@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--source", type=str, required=True, help="Path to input image or video")
     parser.add_argument("--conf", type=float, default=0.5, help="Confidence threshold")
     parser.add_argument("--iou", type=float, default=0.5, help="NMS IoU threshold")
-    parser.add_argument("--device", type=str, default="npu", help="Device to run inference on (npu)")
+    parser.add_argument("--device", type=str, default="cpu", help="Device to run inference on (cpu, cuda, or auto)")
     args = parser.parse_args()
 
     # Load the DXNN model
@@ -37,11 +37,13 @@ def main():
     
     # Run inference
     print(f"Running inference on: {args.source}")
+    # Note: For DXNN models, device handling is internal to the DXNN runtime
+    # The device parameter here is for the main YOLO framework (cpu/cuda)
     results = model(
         source=args.source,
         conf=args.conf,
         iou=args.iou,
-        device=args.device,
+        device=args.device,  # Use standard PyTorch devices (cpu, cuda, auto)
         verbose=True
     )
     

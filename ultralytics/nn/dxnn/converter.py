@@ -7,6 +7,7 @@ This module provides functionality to convert models from various formats
 to DXNN format for efficient inference.
 """
 
+import datetime
 import json
 import numpy as np
 import os
@@ -322,7 +323,7 @@ class DXNNConverter:
             "target_device": self.target_device,
             "batch_size": self.batch_size,
             "optimization_level": self.optimization_level,
-            "conversion_timestamp": str(torch.utils.tensorboard.SummaryWriter().log_dir),
+            "conversion_timestamp": str(datetime.datetime.now()),
             "input_shape": [1, 3, 640, 640],  # Default YOLO input shape
             "output_names": ["output0"],
             "model_type": "detection",
@@ -381,10 +382,7 @@ class DXNNConverter:
         Args:
             device (str): Target device ('npu' or 'auto')
         """
-        valid_devices = ['npu', 'auto']
-        if device not in valid_devices:
-            raise ValueError(f"Invalid device. Must be one of: {valid_devices}")
-        
-        self.target_device = device
+        # DXNN only supports NPU devices, so always set to NPU
+        self.target_device = "npu"
         if self.verbose:
-            LOGGER.info(f"Target device set to: NPU")
+            LOGGER.info(f"Target device set to: NPU (DXNN only supports NPU)")

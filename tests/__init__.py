@@ -22,4 +22,6 @@ __all__ = (
     "TMP",
     "CUDA_IS_AVAILABLE",
     "CUDA_DEVICE_COUNT",
+    "MODELS",
+    "TASK_MODEL_DATA",
 )

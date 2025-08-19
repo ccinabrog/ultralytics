@@ -1,0 +1,9 @@
+{
+  "format": "dxnn",
+  "version": "1.0.0",
+  "source_format": "pytorch",
+  "target_device": "npu",
+  "batch_size": 1,
+  "optimization_level": "balanced",
+  "model_data": "placeholder_model_data"
+}

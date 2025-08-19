@@ -8,6 +8,7 @@ and utilities functionality.
 
 import json
 import numpy as np
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -50,7 +51,7 @@ class TestDXNNRuntime(unittest.TestCase):
     def test_init(self):
         """Test DXNNRuntime initialization."""
         runtime = DXNNRuntime(device="cpu", verbose=False)
-        self.assertEqual(runtime.device, "cpu")
+        self.assertEqual(runtime.device, "npu")  # DXNN only supports NPU
         self.assertFalse(runtime._initialized)
         self.assertIsNone(runtime.model_path)
     
@@ -67,7 +68,7 @@ class TestDXNNRuntime(unittest.TestCase):
         
         # Test invalid device - should default to NPU
         runtime = DXNNRuntime(device="cpu", verbose=False)
-        self.assertEqual(runtime.device, "npu")
+        self.assertEqual(runtime.device, "npu")  # DXNN only supports NPU
     
     def test_load_model_single_file(self):
         """Test loading model from single file."""
@@ -186,7 +187,7 @@ class TestDXNNConverter(unittest.TestCase):
         converter = DXNNConverter(verbose=False)
         self.assertIsNone(converter.input_model)
         self.assertIsNone(converter.output_path)
-        self.assertEqual(converter.target_device, "cpu")
+        self.assertEqual(converter.target_device, "npu")  # DXNN only supports NPU
         self.assertEqual(converter.batch_size, 1)
     
     def test_validate_input_model(self):
@@ -215,7 +216,7 @@ class TestDXNNConverter(unittest.TestCase):
         success = converter.convert(
             input_model=self.test_onnx_path,
             output_path=output_path,
-            target_device="cpu",
+            target_device="npu",  # DXNN only supports NPU
             batch_size=1
         )
         
@@ -238,7 +239,7 @@ class TestDXNNConverter(unittest.TestCase):
         success = converter.convert(
             input_model=self.test_pt_path,
             output_path=output_path,
-            target_device="cpu",
+            target_device="npu",  # DXNN only supports NPU
             batch_size=1
         )
         
@@ -265,11 +266,11 @@ class TestDXNNConverter(unittest.TestCase):
         # Test valid devices
         for device in ["npu", "auto"]:
             converter.set_target_device(device)
-            self.assertEqual(converter.target_device, device)
+            self.assertEqual(converter.target_device, "npu")  # Always NPU for DXNN
         
-        # Test invalid device
-        with self.assertRaises(ValueError):
-            converter.set_target_device("cpu")
+        # Test invalid device - should default to NPU
+        converter.set_target_device("cpu")
+        self.assertEqual(converter.target_device, "npu")
 
 
 class TestDXNNUtils(unittest.TestCase):

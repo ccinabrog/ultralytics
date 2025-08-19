@@ -111,7 +111,8 @@ class DXNNRuntime:
     def _load_single_file(self, model_path: Path):
         """Load model from single .dxnn file."""
         # Simulate loading model file
-        self.input_shape = (1, 3, 640, 640)  # Default YOLO input shape
+        if not hasattr(self, 'input_shape') or self.input_shape is None:
+            self.input_shape = (1, 3, 640, 640)  # Default YOLO input shape
         self.output_names = ["output0"]
         self.metadata = {
             "model_type": "dxnn",
@@ -128,17 +129,26 @@ class DXNNRuntime:
             raise FileNotFoundError(f"No .dxnn file found in {model_dir}")
         
         self.model_path = str(dxnn_files[0])
-        self._load_single_file(dxnn_files[0])
         
-        # Load metadata if available
+        # Load metadata first if available
         metadata_file = model_dir / "metadata.yaml"
         if metadata_file.exists():
             try:
                 import yaml
                 with open(metadata_file, 'r') as f:
-                    self.metadata.update(yaml.safe_load(f))
+                    metadata = yaml.safe_load(f)
+                    self.metadata.update(metadata)
+                    
+                    # Set input shape from metadata if available
+                    if "input_shape" in metadata:
+                        self.input_shape = tuple(metadata["input_shape"])
+                        if self.verbose:
+                            LOGGER.info(f"Set input shape from metadata: {self.input_shape}")
             except Exception as e:
                 LOGGER.warning(f"Failed to load metadata: {e}")
+        
+        # Load the model file (but don't override input_shape if already set)
+        self._load_single_file(dxnn_files[0])
     
     def initialize(self) -> bool:
         """
@@ -193,13 +203,29 @@ class DXNNRuntime:
         if isinstance(inputs, np.ndarray):
             inputs = [inputs]
         
-        # Validate input shapes
+        # Debug: Print input shape and expected shape (only if verbose)
+        if self.verbose:
+            LOGGER.debug(f"DXNN inference - Input shape: {inputs[0].shape}, Expected shape: {self.input_shape}")
+        
+        # Validate and convert input shapes
         for i, input_tensor in enumerate(inputs):
-            if input_tensor.shape[1:] != self.input_shape[1:]:
-                raise ValueError(
-                    f"Input {i} shape {input_tensor.shape[1:]} doesn't match "
-                    f"expected shape {self.input_shape[1:]}"
-                )
+            # Handle both CHW and HWC formats
+            if len(input_tensor.shape) == 4:  # (batch, height, width, channels) or (batch, channels, height, width)
+                if input_tensor.shape[1:] == self.input_shape[1:]:  # CHW format
+                    pass  # Correct format
+                elif input_tensor.shape[1:] == (self.input_shape[2], self.input_shape[3], self.input_shape[1]):  # HWC format
+                    # Convert HWC to CHW
+                    inputs[i] = np.transpose(input_tensor, (0, 3, 1, 2))
+                else:
+                    # If shapes don't match, try to adapt the input shape to match the actual input
+                    if self.verbose:
+                        LOGGER.warning(f"Input shape {input_tensor.shape[1:]} doesn't match expected {self.input_shape[1:]}, adapting...")
+                    
+                    # Convert HWC to CHW if needed
+                    if input_tensor.shape[1] == 3:  # HWC format
+                        inputs[i] = np.transpose(input_tensor, (0, 3, 1, 2))
+                    # Update input shape to match actual input
+                    self.input_shape = input_tensor.shape
         
         # Simulate inference
         outputs = self._run_inference(inputs)

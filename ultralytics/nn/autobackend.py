@@ -576,16 +576,21 @@ class AutoBackend(nn.Module):
         # DXNN
         elif dxnn:
             LOGGER.info(f"Loading {w} for DXNN inference...")
-            check_requirements("dxnn-runtime")  # Assuming DXNN runtime package
-            from dxnn.runtime import DXNNRuntime  # Assuming DXNN runtime import
+            from ultralytics.nn.dxnn.runtime import DXNNRuntime
 
             w = Path(w)
             if not w.is_file():  # if not *.dxnn
                 w = next(w.rglob("*.dxnn"))  # get *.dxnn file from *_dxnn_model dir
-            dxnn_model = DXNNRuntime()
+            dxnn_model = DXNNRuntime(device="npu", verbose=True)  # DXNN only supports NPU
             dxnn_model.load_model(str(w))
             dxnn_model.initialize()
             metadata = w.parent / "metadata.yaml"
+            
+            # Use DXNN runtime's input shape if available
+            if hasattr(dxnn_model, 'input_shape') and dxnn_model.input_shape:
+                input_shape = dxnn_model.input_shape
+                if len(input_shape) == 4:  # (batch, channels, height, width)
+                    imgsz = (input_shape[2], input_shape[3])  # (height, width)
 
         # Any other format (unsupported)
         else:
