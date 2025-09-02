@@ -128,8 +128,9 @@ def run(
         raise FileNotFoundError(f"Source path '{source}' does not exist.")
 
     # Setup Model
-    model = YOLO(f"{weights}")
-    model.to("cuda") if device == "0" else model.to("cpu")
+    model = YOLO(f"{weights}", task='detect')
+    if weights.endswith('.pt'):
+        model.to("cuda") if device == "0" else model.to("cpu")
 
     # Extract classes names
     names = model.names

@@ -128,7 +128,9 @@ def main(onnx_model: str, input_image: str) -> List[Dict[str, Any]]:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="yolov8n.onnx", help="Input your ONNX model.")
+    parser.add_argument("--model", default="dxnn_model/yolov8n.onnx", help="Input your ONNX model.")
+    # parser.add_argument("--model", default="dxnn_model/YOLOV5S-1.onnx", help="Input your DXNN model.")
+    # parser.add_argument("--model", default="dxnn_model/YOLOV5S-1.dxnn", help="Input your DXNN model.")
     parser.add_argument("--img", default=str(ASSETS / "bus.jpg"), help="Path to input image.")
     args = parser.parse_args()
     main(args.model, args.img)
